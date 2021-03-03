@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 #include <unistd.h>
+#include <fstream>
 
 void splitString(std::string text, char d, std::vector<std::string>& result);
 void vectorOfStringsToArrayOfCharArrays(std::vector<std::string>& list, char ***result);
@@ -35,7 +36,7 @@ int main (int argc, char **argv)
     // Welcome message
     printf("Welcome to OSShell! Please enter your commands ('exit' to quit).\n");
 
-    std::vector<std::string> command_list; // to store command user types in, split into its variour parameters
+    std::vector<std::string> command_list; // to store command user types in, split into its various parameters
     char **command_list_exec; // command_list converted to an array of character arrays
     // Repeat:
     //  Print prompt for user input: "osshell> " (no newline)
@@ -45,6 +46,59 @@ int main (int argc, char **argv)
     //  For all other commands, check if an executable by that name is in one of the PATH directories
     //   If yes, execute it
     //   If no, print error statement: "<command_name>: Error command not found" (do include newline)
+
+    // history file creation
+    std::ofstream historyFile("history.txt", std::ios::app);
+    // Prompt user for input until 'exit' is entered
+    while(true)
+    {
+        // Print prompt for user to input
+        std::cout << "osshell> ";
+
+        // Get user input for next command
+        std::string user_input;
+        std::getline(std::cin, user_input);
+        splitString(user_input, ' ', command_list);
+        vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
+        printf("%s %s\n", command_list_exec[0], command_list_exec[1]);
+
+        // Add command to history
+        for( int i = 0; i<command_list.size(); i++)
+        {
+            // add a space for delimiting between arguments until the last argument
+            if(i != command_list.size()-1)
+            {
+                historyFile << command_list_exec[i];
+                historyFile << ' ';
+            }
+            else
+            {
+                historyFile << command_list_exec[i];
+            }
+        }//for
+        historyFile << "\n";
+
+        // Break shell when command 'exit' is inputed
+        if(strcmp(command_list_exec[0], "exit") == 0)
+        {
+            break;
+        }
+
+        // History command
+        if(strcmp(command_list_exec[0], "history") == 0)
+        {
+            
+        }
+
+        
+
+        
+        
+        
+        // free array
+        freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
+    }//while
+    historyFile.close();
 
 
     /************************************************************************************
