@@ -47,8 +47,8 @@ int main (int argc, char **argv)
     //   If yes, execute it
     //   If no, print error statement: "<command_name>: Error command not found" (do include newline)
 
-    // history file creation
-    std::ofstream historyFile("history.txt", std::ios::app);
+    
+    
     // Prompt user for input until 'exit' is entered
     while(true)
     {
@@ -63,6 +63,7 @@ int main (int argc, char **argv)
         printf("%s %s\n", command_list_exec[0], command_list_exec[1]);
 
         // Add command to history
+        std::ofstream historyFile("history.txt", std::ios::app);
         for( int i = 0; i<command_list.size(); i++)
         {
             // add a space for delimiting between arguments until the last argument
@@ -75,8 +76,10 @@ int main (int argc, char **argv)
             {
                 historyFile << command_list_exec[i];
             }
+            
         }//for
         historyFile << "\n";
+        historyFile.close();
 
         // Break shell when command 'exit' is inputed
         if(strcmp(command_list_exec[0], "exit") == 0)
@@ -87,8 +90,27 @@ int main (int argc, char **argv)
         // History command
         if(strcmp(command_list_exec[0], "history") == 0)
         {
-            
+            std::ifstream readHistoryFile("history.txt", std::ios::out);
+            std::string line;
+            // if there is a 'n' parameter for history
+            if(command_list_exec[1] != NULL)
+            {
+                for(int i = 1;)
+                
+            }
+            // if 'history' does not have a specified number
+            else
+            {
+                int command_number = 1;
+                while(std::getline(readHistoryFile, line))
+                {
+                    std::cout << "  " << command_number << ": " << line << "\n"; 
+                    command_number++;
+                }
+            }
+            readHistoryFile.close();
         }
+        
 
         
 
@@ -98,7 +120,7 @@ int main (int argc, char **argv)
         // free array
         freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
     }//while
-    historyFile.close();
+    
 
 
     /************************************************************************************
