@@ -14,7 +14,7 @@
 void splitString(std::string text, char d, std::vector<std::string>& result);
 void vectorOfStringsToArrayOfCharArrays(std::vector<std::string>& list, char ***result);
 void freeArrayOfCharArrays(char **array, size_t array_length);
-void addToHistoryFile(char **command, int *number_saved, int command_size);
+void addToHistoryFile(std::string command, int *number_saved, int command_size);
 void history(int number, int filesize);
 void findAndExecute(char **command, std::vector<std::string> path_list);
 
@@ -113,7 +113,7 @@ int main (int argc, char **argv)
             // Break shell when command 'exit' is inputed
             else if(strcmp(command_list_exec[0], "exit") == 0)
             {
-                addToHistoryFile(command_list_exec, &history_number, command_list.size());
+                addToHistoryFile(user_input, &history_number, command_list.size());
                 break;
             }//else if
             // Any other possible command entered
@@ -125,7 +125,7 @@ int main (int argc, char **argv)
             // Add command to history if not 'history clear'
             if(history_clear == 0)
             {
-                addToHistoryFile(command_list_exec, &history_number, command_list.size());
+                addToHistoryFile(user_input, &history_number, command_list.size());
             }//if
 
             
@@ -239,7 +239,7 @@ void freeArrayOfCharArrays(char **array, size_t array_length)
     number_saved: number of commands saved in the history file already
     command_size: number of parameters in the command
 */
-void addToHistoryFile(char **command, int *number_saved, int command_size)
+void addToHistoryFile(std::string command, int *number_saved, int command_size)
 {
     // If the number of commands saved exceeds 128, delete the first
     if(*number_saved == 128)
@@ -258,23 +258,9 @@ void addToHistoryFile(char **command, int *number_saved, int command_size)
         std::rename("temp.txt", "history.txt");
         *number_saved = *number_saved - 1;
     }//if
-
     // Add the command to the history file
     std::ofstream historyFile("history.txt", std::ios::app);
-    for( int i = 0; i<command_size; i++)
-    {
-        // add a space for delimiting between arguments until the last argument
-        if(i != command_size-1)
-        {
-            historyFile << command[i];
-            historyFile << ' ';
-        }//if
-        else
-        {
-            historyFile << command[i];
-        }//else
-        
-    }//for
+    historyFile << command;
     historyFile << "\n";
     historyFile.close();
     *number_saved = *number_saved + 1;
@@ -350,7 +336,7 @@ void findAndExecute(char **command, std::vector<std::string> path_list)
     }//if
     else
     {
-        printf("<%s>: Error command not found\n", command[0]);
+        printf("%s: Error command not found\n", command[0]);
     }//else
 }//findAndExecute
 
