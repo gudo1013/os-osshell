@@ -6,10 +6,17 @@
 #include <vector>
 #include <unistd.h>
 #include <fstream>
+#include <sys/stat.h>
+#include <filesystem>
+#include <sys/wait.h>
+#include <ctype.h>
 
 void splitString(std::string text, char d, std::vector<std::string>& result);
 void vectorOfStringsToArrayOfCharArrays(std::vector<std::string>& list, char ***result);
 void freeArrayOfCharArrays(char **array, size_t array_length);
+void addToHistoryFile(char **command, int *number_saved, int command_size);
+void history(int number, int filesize);
+void findAndExecute(char **command, std::vector<std::string> path_list);
 
 int main (int argc, char **argv)
 {
@@ -18,26 +25,12 @@ int main (int argc, char **argv)
     char* os_path = getenv("PATH");
     splitString(os_path, ':', os_path_list);
 
-    
-    /************************************************************************************
-     *   Example code - remove in actual program                                        *
-     ************************************************************************************/
-    // Shows how to loop over the directories in the PATH environment variable
-    int i;
-    for (i = 0; i < os_path_list.size(); i++)
-    {
-        printf("PATH[%2d]: %s\n", i, os_path_list[i].c_str());
-    }
-    /************************************************************************************
-     *   End example code                                                               *
-     ************************************************************************************/
-
-
     // Welcome message
     printf("Welcome to OSShell! Please enter your commands ('exit' to quit).\n");
 
     std::vector<std::string> command_list; // to store command user types in, split into its various parameters
     char **command_list_exec; // command_list converted to an array of character arrays
+
     // Repeat:
     //  Print prompt for user input: "osshell> " (no newline)
     //  Get user input for next command
@@ -47,7 +40,16 @@ int main (int argc, char **argv)
     //   If yes, execute it
     //   If no, print error statement: "<command_name>: Error command not found" (do include newline)
 
-    
+    // History file counting
+    std::ifstream readHistoryFile("history.txt", std::ios::out);
+    int history_number;
+    history_number = 0;
+    std::string templine;
+    while(std::getline(readHistoryFile, templine))
+    {
+        history_number++;
+    }//while
+    readHistoryFile.close();
     
     // Prompt user for input until 'exit' is entered
     while(true)
@@ -60,106 +62,80 @@ int main (int argc, char **argv)
         std::getline(std::cin, user_input);
         splitString(user_input, ' ', command_list);
         vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
-        printf("%s %s\n", command_list_exec[0], command_list_exec[1]);
 
-        // Add command to history
-        std::ofstream historyFile("history.txt", std::ios::app);
-        for( int i = 0; i<command_list.size(); i++)
+        // Empty command handling
+        if(command_list_exec[0]!=NULL)
         {
-            // add a space for delimiting between arguments until the last argument
-            if(i != command_list.size()-1)
+            // History command
+            int history_clear = 0;
+            if(strcmp(command_list_exec[0], "history") == 0)
             {
-                historyFile << command_list_exec[i];
-                historyFile << ' ';
-            }
-            else
-            {
-                historyFile << command_list_exec[i];
-            }
-            
-        }//for
-        historyFile << "\n";
-        historyFile.close();
-
-        // Break shell when command 'exit' is inputed
-        if(strcmp(command_list_exec[0], "exit") == 0)
-        {
-            break;
-        }
-
-        // History command
-        if(strcmp(command_list_exec[0], "history") == 0)
-        {
-            std::ifstream readHistoryFile("history.txt", std::ios::out);
-            std::string line;
-            // if there is a 'n' parameter for history
-            if(command_list_exec[1] != NULL)
-            {
-                for(int i = 1;)
-                
-            }
-            // if 'history' does not have a specified number
-            else
-            {
-                int command_number = 1;
-                while(std::getline(readHistoryFile, line))
+                // 'history'
+                if(command_list_exec[1] == NULL)
                 {
-                    std::cout << "  " << command_number << ": " << line << "\n"; 
-                    command_number++;
-                }
-            }
-            readHistoryFile.close();
-        }
-        
+                    // Print the entire history
+                    history(history_number, history_number);
+                }//if
+                // 'history n'
+                else if(atoi(command_list_exec[1]) > 0)
+                {
+                    // Check that the whole second arg is a number
+                    bool isnum = true;
+                    for(int j = 0; j<strlen(command_list_exec[1]); j++)
+                    {
+                        if(!(isdigit(command_list_exec[1][j])))
+                        {
+                            isnum = false;
+                        }
+                    }//while
+                    if(isnum)
+                    {
+                        // Print the last number of command specified
+                        history(atoi(command_list_exec[1]), history_number);
+                    }//if
+                    else
+                    {
+                        std::cout << "Error: history expects an integer > 0 (or 'clear')\n";
+                    }
+                }//else if
+                // 'history clear'
+                else if(strcmp(command_list_exec[1], "clear")==0)
+                {
+                    std::remove("history.txt");
+                    history_clear = 1;
+                }//else if
+                // Incorrect formatting for history
+                else
+                {
+                    std::cout << "Error: history expects an integer > 0 (or 'clear')\n";
+                }//else
+            }//if
+            // Break shell when command 'exit' is inputed
+            else if(strcmp(command_list_exec[0], "exit") == 0)
+            {
+                addToHistoryFile(command_list_exec, &history_number, command_list.size());
+                break;
+            }//else if
+            // Any other possible command entered
+            else
+            {
+                findAndExecute(command_list_exec, os_path_list);
+            }//else
 
-        
+            // Add command to history if not 'history clear'
+            if(history_clear == 0)
+            {
+                addToHistoryFile(command_list_exec, &history_number, command_list.size());
+            }//if
 
+            
         
-        
-        
+        }//if
         // free array
         freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
+        
     }//while
     
-
-
-    /************************************************************************************
-     *   Example code - remove in actual program                                        *
-     ************************************************************************************/
-    // Shows how to split a command and prepare for the execv() function
-    std::string example_command = "ls -lh";
-    splitString(example_command, ' ', command_list);
-    vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
-    // use `command_list_exec` in the execv() function rather than looping and printing
-    i = 0;
-    while (command_list_exec[i] != NULL)
-    {
-        printf("CMD[%2d]: %s\n", i, command_list_exec[i]);
-        i++;
-    }
-    // free memory for `command_list_exec`
-    freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
-    printf("------\n");
-
-    // Second example command - reuse the `command_list` and `command_list_exec` variables
-    example_command = "echo \"Hello world\" I am alive!";
-    splitString(example_command, ' ', command_list);
-    vectorOfStringsToArrayOfCharArrays(command_list, &command_list_exec);
-    // use `command_list_exec` in the execv() function rather than looping and printing
-    i = 0;
-    while (command_list_exec[i] != NULL)
-    {
-        printf("CMD[%2d]: %s\n", i, command_list_exec[i]);
-        i++;
-    }
-    // free memory for `command_list_exec`
-    freeArrayOfCharArrays(command_list_exec, command_list.size() + 1);
-    printf("------\n");
-    /************************************************************************************
-     *   End example code                                                               *
-     ************************************************************************************/
-
-
     return 0;
 }
 
@@ -257,3 +233,124 @@ void freeArrayOfCharArrays(char **array, size_t array_length)
     }
     delete[] array;
 }
+
+/*
+    command: the command to be saved
+    number_saved: number of commands saved in the history file already
+    command_size: number of parameters in the command
+*/
+void addToHistoryFile(char **command, int *number_saved, int command_size)
+{
+    // If the number of commands saved exceeds 128, delete the first
+    if(*number_saved == 128)
+    {
+        std::ofstream tempFile("temp.txt", std::ios::app);
+        std::ifstream historyFile("history.txt", std::ios::out);
+        std::string line;
+        std::getline(historyFile, line);
+        while(std::getline(historyFile, line))
+        {
+            tempFile << line << "\n";
+        }//while
+        tempFile.close();
+        historyFile.close();
+        std::remove("history.txt");
+        std::rename("temp.txt", "history.txt");
+        *number_saved = *number_saved - 1;
+    }//if
+
+    // Add the command to the history file
+    std::ofstream historyFile("history.txt", std::ios::app);
+    for( int i = 0; i<command_size; i++)
+    {
+        // add a space for delimiting between arguments until the last argument
+        if(i != command_size-1)
+        {
+            historyFile << command[i];
+            historyFile << ' ';
+        }//if
+        else
+        {
+            historyFile << command[i];
+        }//else
+        
+    }//for
+    historyFile << "\n";
+    historyFile.close();
+    *number_saved = *number_saved + 1;
+}
+
+/*
+number: the number of previous commands to be printed
+filesize: how many commands currently stored in the history file
+*/
+void history(int number, int filesize)
+{
+    //print correct lines in history
+    std::ifstream readHistoryFile("history.txt", std::ios::out);
+    std::string line;
+    int command_number = 1;
+    while(std::getline(readHistoryFile, line))
+    {
+        if(command_number > filesize - number)
+        {
+            printf("%3d: ", command_number);
+            std::cout << line << "\n"; 
+        }//if
+        command_number++;
+    }//while
+    readHistoryFile.close();
+}//history
+
+/*
+command: the command to be executed
+path_list: list of PATH variables to search through for executables
+*/
+void findAndExecute(char **command, std::vector<std::string> path_list)
+{
+    bool exists = false;
+    std::string full_path;
+    pid_t process;
+    // Search in the current directory
+    if( command[0][0] == '.' || command[0][0] == '/' )
+    {
+        if(std::filesystem::exists(command[0]) && !exists)
+        {
+            exists = true;
+            full_path = command[0];
+        }//if
+    }
+    // Search in the PATH enviroment variable location
+    else
+    {
+        for (int i = 0; i < path_list.size(); i++)
+        {
+            
+            if(std::filesystem::exists(path_list[i] + "/" + command[0]) && !exists)
+            {
+                exists = true;
+                full_path = (path_list[i] + "/" + command[0]).c_str();
+            }//if
+        }//for
+    }
+    if(exists)
+    {
+        process = fork();
+        // Child process
+        if(process == 0)
+        {
+            execv(full_path.c_str(), command);
+            exit(0);
+            
+        }//if
+        else
+        {
+            wait(NULL);
+        }//else
+    }//if
+    else
+    {
+        printf("<%s>: Error command not found\n", command[0]);
+    }//else
+}//findAndExecute
+
